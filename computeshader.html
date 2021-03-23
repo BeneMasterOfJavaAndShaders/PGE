@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8"/>
+    //<meta name="viewport" content="width=device-width, user-scalable=no"/>
+    //<meta name="google" content="notranslate"/>
+    <title>WebGL ComputeShader Simple Demo</title>
+    <style>
+
+      body {
+          margin: 0;
+          padding: 0;
+          background-color: white;
+          overflow: hidden;
+          font-family: sans-serif;
+      }
+
+      div#contents {
+          background-color: rgb(231, 231, 231);
+          padding: 20px;
+      }
+
+      body.error {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background-color: rgb(85%, 35%, 35%);
+      }
+
+      body.error #contents {
+          display: none;
+      }
+
+      #error {
+          margin: 0;
+          padding: 0;
+          width: 50vw;
+          display: none;
+          text-align: center;
+      }
+
+      @media (max-width: 480px) {
+          #error {
+              width: 100vw;
+          }
+      }
+
+      body.error #error {
+          display: block;
+      }
+
+      #error h2 {
+          font-weight: bold;
+          font-size: 40px;
+          margin-bottom: 20px;
+      }
+
+      #error p {
+          font-size: 30px;
+      }
+
+    </style>
+    <script>
+
+const script = async () => {
+  // Canvas setup
+  const canvas = document.createElement(('canvas'));
+
+  // Create WebGL2ComputeRenderingContext
+  const context = canvas.getContext('webgl2-compute');
+  if (!context) {
+    document.body.className = 'error';
+    return;
+  }
+  document.getElementById('context').innerText = 'WebGL2ComputeRenderingContext create: success';
+
+  // ComputeShader source
+  // language=GLSL
+  const computeShaderSource = `#version 310 es
+    layout (local_size_x = 8, local_size_y = 1, local_size_z = 1) in;
+    layout (std430, binding = 0) buffer SSBO {
+     float data[];
+    } ssbo;
+    
+    void main() {
+      uint threadIndex = gl_GlobalInvocationID.x;
+      ssbo.data[threadIndex] = float(threadIndex);
+    }
+    `;
+
+  // create WebGLShader for ComputeShader
+  const computeShader = context.createShader(context.COMPUTE_SHADER);
+  context.shaderSource(computeShader, computeShaderSource);
+  context.compileShader(computeShader);
+  if (!context.getShaderParameter(computeShader, context.COMPILE_STATUS)) {
+    console.log(context.getShaderInfoLog(computeShader));
+    return;
+  }
+
+  // create WebGLProgram for ComputeShader
+  const computeProgram = context.createProgram();
+  context.attachShader(computeProgram, computeShader);
+  context.linkProgram(computeProgram);
+  if (!context.getProgramParameter(computeProgram, context.LINK_STATUS)) {
+    console.log(context.getProgramInfoLog(computeProgram));
+    return;
+  }
+
+  // input data
+  const input = new Float32Array(8);
+  document.getElementById('input').innerText = `input: [${input}]`;
+
+  // create ShaderStorageBuffer
+  const ssbo = context.createBuffer();
+  context.bindBuffer(context.SHADER_STORAGE_BUFFER, ssbo);
+  context.bufferData(context.SHADER_STORAGE_BUFFER, input, context.DYNAMIC_COPY);
+  context.bindBufferBase(context.SHADER_STORAGE_BUFFER, 0, ssbo);
+
+  // execute ComputeShader
+  context.useProgram(computeProgram);
+  context.dispatchCompute(1, 1, 1);
+
+  // get result
+  const result = new Float32Array(8);
+  context.getBufferSubData(context.SHADER_STORAGE_BUFFER, 0, result);
+  document.getElementById('output').innerText = `output: [${result}]`;
+};
+
+window.addEventListener('DOMContentLoaded', script);
+
+
+    </script>
+  </head>
+  <body>
+    <div id="error">
+      <h2>WebGL 2.0 Compute not available</h2>
+      <p>
+        Make sure you are on a system with WebGL 2.0 Compute enabled.
+        Windows Google Chrome or <a href="https://www.microsoftedgeinsider.com/en-us/download/?platform=win10">Microsoft Edge Insider Channels</a> with Command Line Switches:"--enable-webgl2-compute-context", "--use-angle=gl" and "--use-cmd-decoder=passthrough".
+      </p>
+    </div>
+    <div id="contents">
+      <div id="context"></div>
+      <div id="input"></div>
+      <div id="output"></div>
+    </div>
+  </body>
+</html>
